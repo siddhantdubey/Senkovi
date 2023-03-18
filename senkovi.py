@@ -1,6 +1,7 @@
 import openai
 import sys
 import os
+import time
 import traceback
 import runpy
 import json
@@ -56,7 +57,8 @@ def send_code(file_name: str) -> str:
     }}
     In the 'action' field, use "add" for adding a line,
     "remove" for removing a line, and "edit" for editing a line.
-    Please provide the suggested changes in this format."""
+    Please provide the suggested changes in this format.
+    DO NOT DEVIATE FROM THE FORMAT! You will be penalized if you do."""
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -79,13 +81,14 @@ def edit_code(file_path: str, fix: str) -> None:
 
     for change in changes:
         action = change["action"]
-        line_number = change["line_number"] - 1  # Adjust for 0-based indexing
+        line_number = change["line_number"] - 1
         original_line = change.get("original_line")
         new_line = change.get("new_line")
 
         if action == "edit":
             if lines[line_number].strip() == original_line.strip():
-                lines[line_number] = new_line + "\n"
+                indent = len(lines[line_number]) - len(lines[line_number].lstrip())
+                lines[line_number] = " " * indent + new_line + "\n"
         elif action == "remove":
             if lines[line_number].strip() == original_line.strip():
                 del lines[line_number]
@@ -95,9 +98,6 @@ def edit_code(file_path: str, fix: str) -> None:
     with open(file_path, "w") as file:
         file.writelines(lines)
 
-    print("Code has been fixed. Please run the code again.")
-
-
 if __name__ == "__main__":
     while True:
         code, output = run_code(sys.argv[1])
@@ -105,8 +105,15 @@ if __name__ == "__main__":
         if "Traceback" in output:
             print(f"Output:\n{output}\n")
             print("Fixing code...\n")
+            fix_start_time = time.time()
             fix = send_code(sys.argv[1])
+            fix_end_time = time.time()
+            print(f"Fixing code took {fix_end_time - fix_start_time} seconds.")
+            print(f"Fix:\n{fix}\n")
+            edit_start_time = time.time()
             edit_code(sys.argv[1], fix)
+            edit_end_time = time.time()
+            print(f"Editing code took {edit_end_time - edit_start_time} seconds.")
         else:
             print(f"Output:\n{output}\n")
             print("Code is syntax error-free!")
