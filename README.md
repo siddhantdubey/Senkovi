@@ -17,4 +17,4 @@ I would love your contributions. Just make a Pull Request and add what you think
 - Prettifying the terminal output to show diffs nicely.
 
 ## Naming
-- Named Sankovi after Disra Sankovi from *Children of Ruin*.
+- Named Sankovi after Disra Senkovi from *Children of Ruin*.
