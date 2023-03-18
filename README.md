@@ -1,4 +1,4 @@
-# Sankovi.py
+# Senkovi.py
 
 ## What is it?
 Inspired by this [tweet](https://twitter.com/bio_bootloader/status/1636880208304431104?s=20) by bio_bootloader, I wrote a Python script that uses the GPT-4 API to "heal" other pytho scripts. As of now, it catches some basic errors, and in my incredibly limited testing, it fixes them.
@@ -6,7 +6,7 @@ Inspired by this [tweet](https://twitter.com/bio_bootloader/status/1636880208304
 ## Usage
 You just need an OpenAI API Key and GPT-4 access, although this probably could work well enough with GPT-3.5-turbo. I haven't tested that yet.
 Then just run it as follows:
-`python sankovi.py buggy_program.py`
+`python senkovi.py buggy_program.py`
 
 ## Contributions
 I would love your contributions. Just make a Pull Request and add what you think might be cool.
@@ -17,4 +17,4 @@ I would love your contributions. Just make a Pull Request and add what you think
 - Prettifying the terminal output to show diffs nicely.
 
 ## Naming
-- Named Sankovi after Disra Senkovi from *Children of Ruin*.
+- Named Senkovi after Disra Senkovi from *Children of Ruin*.
