@@ -6,7 +6,7 @@ Inspired by this [tweet](https://twitter.com/bio_bootloader/status/1636880208304
 ## Usage
 You just need an OpenAI API Key and GPT-4 access, although this probably could work well enough with GPT-3.5-turbo. I haven't tested that yet.
 Then just run it as follows:
-`python sankovi.py path_to_file_to_fix.py`
+`python sankovi.py buggy_program.py`
 
 ## Contributions
 I would love your contributions. Just make a Pull Request and add what you think might be cool.
