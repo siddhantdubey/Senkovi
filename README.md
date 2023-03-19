@@ -8,6 +8,9 @@ You just need an OpenAI API Key and GPT-4 access, although this probably could w
 Then just run it as follows:
 `python senkovi.py buggy_program.py`
 
+If you want to pass in the intent of the program, you can do so as follows. Note that this is an optional argument.
+`python senkovi.py buggy_program.py "This program is meant to add numbers"`
+
 ## Contributions
 I would love your contributions. Just make a Pull Request and add what you think might be cool.
 
