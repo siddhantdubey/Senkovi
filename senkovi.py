@@ -1,10 +1,10 @@
 import openai
 import sys
 import os
-import time
 import traceback
 import runpy
 import json
+import difflib
 from contextlib import redirect_stdout
 from io import StringIO
 from typing import Tuple
@@ -12,21 +12,31 @@ from typing import Tuple
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
+def colored(text: str, color_code: str) -> str:
+    return f"{color_code}{text}\033[0m"
+
+
+def colorize_diff(diff: str) -> str:
+    color_map = {
+        "+": "\033[32m",
+        "-": "\033[31m",
+        "@": "\033[34m",
+    }
+    return "".join(colored(line, color_map.get(line[0], "\033[37m")) + "\n" for line in diff.splitlines())
+
+
 def run_code(file_name: str) -> Tuple[str, str]:
-    code = ""
-    output = ""
     with open(file_name, "r") as f:
         code = f.read()
+        
     buffer = StringIO()
     with redirect_stdout(buffer):
         try:
             runpy.run_path(file_name, run_name="__main__")
-        except Exception as e:
-            output += buffer.getvalue()
-            output += "\n" + "".join(traceback.format_exception(
-                *sys.exc_info()))
-    if not output:
-        output = buffer.getvalue()
+        except Exception:
+            output = buffer.getvalue() + "\n" + "".join(traceback.format_exception(*sys.exc_info()))
+        else:
+            output = buffer.getvalue()
     return code, output
 
 
@@ -46,6 +56,8 @@ def send_code(file_name: str) -> str:
     {output}
     For example, the JSON output should look like:
     {{
+    "intent": "ascertain the original intent of the program",
+    "explanation": "Explanation of what went wrong and the changes being made",
     "changes": [
         {{
         "action": "edit",
@@ -58,7 +70,8 @@ def send_code(file_name: str) -> str:
     In the 'action' field, use "add" for adding a line,
     "remove" for removing a line, and "edit" for editing a line.
     Please provide the suggested changes in this format.
-    DO NOT DEVIATE FROM THE FORMAT! You will be penalized if you do."""
+    DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
+    You will be penalized if you do."""
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -74,8 +87,13 @@ def send_code(file_name: str) -> str:
 
 
 def edit_code(file_path: str, fix: str) -> None:
-    changes = json.loads(fix)["changes"]
-
+    while True:
+        try:
+            changes = json.loads(fix)["changes"]
+            break
+        except json.JSONDecodeError:
+            fix = send_code(file_path)
+    
     with open(file_path, "r") as file:
         lines = file.readlines()
 
@@ -85,36 +103,46 @@ def edit_code(file_path: str, fix: str) -> None:
         original_line = change.get("original_line")
         new_line = change.get("new_line")
 
-        if action == "edit":
-            if lines[line_number].strip() == original_line.strip():
-                indent = len(lines[line_number]) - len(lines[line_number].lstrip())
-                lines[line_number] = " " * indent + new_line + "\n"
-        elif action == "remove":
-            if lines[line_number].strip() == original_line.strip():
-                del lines[line_number]
+        if action == "edit" and lines[line_number].strip() == original_line.strip():
+            indent = len(lines[line_number]) - len(lines[line_number].lstrip())
+            lines[line_number] = " " * indent + new_line + "\n"
+        elif action == "remove" and lines[line_number].strip() == original_line.strip():
+            del lines[line_number]
         elif action == "add":
             lines.insert(line_number, new_line + "\n")
 
     with open(file_path, "w") as file:
         file.writelines(lines)
 
-if __name__ == "__main__":
+
+def main(file_path: str):
+    with open(file_path, "r") as f:
+        original_code = f.read()
+    print(f"Original Code:\n{original_code}\n")
+
     while True:
-        code, output = run_code(sys.argv[1])
-        print(f"Code:\n{code}\n")
+        code, output = run_code(file_path)
         if "Traceback" in output:
             print(f"Output:\n{output}\n")
             print("Fixing code...\n")
-            fix_start_time = time.time()
-            fix = send_code(sys.argv[1])
-            fix_end_time = time.time()
-            print(f"Fixing code took {fix_end_time - fix_start_time} seconds.")
-            print(f"Fix:\n{fix}\n")
-            edit_start_time = time.time()
-            edit_code(sys.argv[1], fix)
-            edit_end_time = time.time()
-            print(f"Editing code took {edit_end_time - edit_start_time} seconds.")
+            fix = send_code(file_path)
+            edit_code(file_path, fix)
+            with open(file_path, "r") as f:
+                new_code = f.read()
+            diff = difflib.unified_diff(
+                code.splitlines(keepends=True),
+                new_code.splitlines(keepends=True),
+                fromfile="original",
+                tofile="new",
+            )
+            diff = colorize_diff("".join(diff))
+            print("".join(diff))
         else:
             print(f"Output:\n{output}\n")
             print("Code is syntax error-free!")
             break
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])
+
