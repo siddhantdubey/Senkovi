@@ -1,4 +1,4 @@
-# Senkovi (DON'T USE CURRENT VERSION, GO BACK TO YESTERDAY!, I MESSED UP INDENTATIONS AGAIN!!!)
+# Senkov
 
 ## What is it?
 Inspired by this [tweet](https://twitter.com/bio_bootloader/status/1636880208304431104?s=20) by bio_bootloader, I wrote a Python script that uses the GPT-4 API to "heal" other pytho scripts. As of now, it catches some basic errors, and in my incredibly limited testing, it fixes them. It now also can write a small program with a prompt passed in and then iteratively heal that program until it works.
@@ -7,18 +7,17 @@ Inspired by this [tweet](https://twitter.com/bio_bootloader/status/1636880208304
 You just need an OpenAI API Key in your env and GPT-4 access, although this probably could work well enough with GPT-3.5-turbo. I haven't tested that yet.
 Then just run it as follows:
 
-`python senkovi.py buggy_program.py`
+`python senkovi.py buggy_program.py 0 "optional instructions"` if you want to fix bugs. This works pretty decently.
 
-If you want to pass in the intent of the program, you can do so as follows. Note that this is an optional argument.
-
-`python senkovi.py buggy_program.py "This program is meant to add numbers"`
+`python senkovi.py buggy_program.py 1 "edits you want made to the code"` if you want to add a feature or change a feature in the code. I haven't tested this much.
 
 To write a program from scratch, use fabian.py.
 
 `python fabian.py "A python script to plot a quadratic equation and save it to an image"`
 
 Notice that you do not actually provide a filename, this is probably an oversight, but fabian.py comes up with the filename itself.
-Running fabian.py will run the program fabian writes as well, be careful!
+Running fabian.py will run the program fabian writes as well, be careful! Also, I've found that it has a really hard time with indentation
+so if you pass in a reminder in the instructions you'll probably end up with better results! 
 
 ## Limitations and Dangers
 - 8k context length for GPT-4 api limits the size of the programs and projects that can be constructed.

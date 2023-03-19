@@ -1,9 +1,7 @@
-# buggy_program.py
 def buggy_function():
-    """This function is meant to add two integers together"""
-    number2 = 5
-    number1 = "4"
-    result = number1 + number2
-    return result
+    num1 = 2
+    num2 = int("3")
+    return num1 + num2
+
 if __name__ == "__main__":
     print(buggy_function())

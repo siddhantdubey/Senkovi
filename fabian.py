@@ -29,9 +29,10 @@ def generate_program(prompt: str) -> List[str]:
     return lines
 
 
-def write_program(completion: List[str]) -> str:
-    filename_line = completion.pop(0)
-    filename = filename_line.strip().strip("# ").strip()
+def write_program(completion: List[str], filename: str = None) -> str:
+    if not filename:
+        filename_line = completion.pop(0)
+        filename = filename_line.strip().strip("# ").strip()
     program_code = "\n".join(completion)
     with open(filename, "w+") as f:
         f.write(program_code)
@@ -42,8 +43,12 @@ def main():
         print("Usage: python3 fabian.py <prompt>")
         sys.exit(1)
     prompt = sys.argv[1]
+    if len(sys.argv) == 3:
+        filename = sys.argv[2]
+    else:
+        filename = None
     program = generate_program(prompt)
-    filename = write_program(program)
+    filename = write_program(program, filename)
     print(f"\033[94mProgram written to {filename}!\033[0m")
     fix_code(filename, prompt)
 

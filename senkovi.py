@@ -37,7 +37,7 @@ def run_code(file_name: str, module_cache: Dict[str, types.ModuleType] = None) -
     for file in os.listdir():
         if file.endswith(".py"):
             module_name = file.split(".")[0]
-            if module_name not in module_cache:
+            if module_name not in module_cache and module_name != "__main__" and module_name != "senkovi" and module_name != file_name.split(".")[0]:
                 module_cache[module_name] = importlib.import_module(module_name)
     buffer = StringIO()
     with redirect_stdout(buffer):
@@ -62,15 +62,12 @@ def send_code(file_name: str, intent: str = None) -> str:
             help me fix the issues in the code.
     The original code of the program run ({file_name}) and the output, including any error messages and stack \
             traces, are provided below.
-    
+
     Please return a JSON object containing the suggested changes in a format \
             similar to the git diff system, showing whether a line is added,
             removed, or edited for each file.
     {"Intent: " + intent if intent else ""}
-    Original Code:
-    {code}
-    Output:
-    {output}
+    
     For example, the JSON output should look like:
     {{
     "intent": "This should be what you think the program SHOULD do.",
@@ -90,11 +87,18 @@ def send_code(file_name: str, intent: str = None) -> str:
     ]
 
     }}
-    In the 'action' field, use "add" for adding a line,
+    In the 'action' field, use "add" for adding a line, thisl will put the line \
+            after the line number,
     "remove" for removing a line, and "edit" for editing a line.
     Please provide the suggested changes in this format.
+    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE.
     DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
-    You will be penalized if you do."""
+    You will be penalized if you do.
+    Original Code:
+    {code}
+    Output:
+    {output}
+    """
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -124,20 +128,18 @@ def edit_code(run_file: str, fix: str, intent: str = None) -> List[str]:
         changes = f["changes"]
         with open(file_path, "r") as file:
             lines = file.readlines()
-
+        changes.sort(key=lambda x: x["line_number"], reverse=True)
         for change in changes:
             action = change["action"]
             line_number = change["line_number"] - 1
             original_line = change.get("original_line")
             new_line = change.get("new_line")
-
-            if action == "edit" and lines[line_number].strip() == original_line.strip():
-                indent = len(lines[line_number]) - len(lines[line_number].lstrip())
-                lines[line_number] = " " * indent + new_line + "\n"
-            elif action == "remove" and lines[line_number].strip() == original_line.strip():
+            if action == "edit":
+                lines[line_number] = new_line.rstrip() + "\n"
+            elif action == "remove":
                 del lines[line_number]
             elif action == "add":
-                lines.insert(line_number, new_line + "\n")
+                lines.insert(line_number + 1, new_line + "\n")
 
         with open(file_path, "w") as file:
             file.writelines(lines)
@@ -180,10 +182,104 @@ def fix_code(file_path: str, intent: str = None):
             print("Code is syntax error-free!")
             break
 
+def change_code(file_path: str, intent: str = None):
+    """ 
+    This changes the code according to the intent provided by the user.
+    It then calls fix_code to fix the code if there are any bugs.
+    """
+    module_cache = {}
+    code, output = run_code(file_path)
+
+    with open(file_path, "r") as f:
+        original_code = f.read()
+    
+    print(f"Original Code:\n{original_code}\n")
+
+    change_prompt = f"""I want you to change the following Python code in a manner I declare with the following intent {intent}.
+            The file you're editing is {file_path}.
+            Please return a JSON object containing the suggested changes in a format \
+            similar to the git diff system, showing whether a line is added,
+            removed, or edited for each file.
+            DO NOT ADD DUPLICATE LINES, EDIT LINES THAT ARE ALREADY THERE, FAVOR EDITS OVER ADDS.
+            BE JUDICIOUS WITH YOUR CHANGES, DON'T TOUCH LINES THAT DON'T NEED TO BE TOUCHED.
+    {"Intent: " + intent if intent else ""}
+
+    For example, the JSON output should look like:
+    {{
+    "intent": "This should be what you the user wants the code to do.",
+    "explanation": "Explanation of your plan to change the code.",
+    "files": [
+        {{
+            "file_name": "file_name.py",
+            "changes": [
+                {{
+                "action": "edit",
+                "line_number": 2,
+                "original_line": "print(hello world')",
+                "new_line": "print('hello world')",
+                }}
+            ]
+        }},
+    ]
+
+    }}
+    In the 'action' field, use "add" for adding a line,
+    "remove" for removing a line, and "edit" for editing a line.
+    Please provide the suggested changes in this format.
+    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL!
+    DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
+    You will be penalized if you do.
+    Original Code:
+    {code}
+    Output:
+    {output}
+    """
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that is brilliant at writing Python code.",
+            },
+            {"role": "user", "content": change_prompt},
+        ],
+    )
+
+    fix = response["choices"][0]["message"]["content"]
+    print(f"Fix:\n{fix}\n")
+    files_changed = edit_code(file_path, fix, intent)
+    for code_file in files_changed:
+        with open(code_file, "r") as f:
+            new_code = f.read()
+        diff = difflib.unified_diff(
+            original_code.splitlines(keepends=True),
+            new_code.splitlines(keepends=True),
+            fromfile="original",
+            tofile="new",
+        )
+        diff = colorize_diff("".join(diff))
+        print(f"\033[33m{code_file}\033[0m")
+        print("".join(diff))
+    fix_code(file_path, intent)
+
+
 
 if __name__ == "__main__":
-    intent = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
-    if intent:
-        fix_code(sys.argv[1], intent)
-    else:
-        fix_code(sys.argv[1])
+    if len(sys.argv) < 2:
+        print("Usage: python3 senkovi.py <file_path> <0 if you want to fix code, 1 if you want to change code> <intent, optional if just bugfixing>")
+        sys.exit(1)
+    file_path = sys.argv[1]
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "0":
+            fix_code(file_path)
+        elif sys.argv[2] == "1":
+            if len(sys.argv) > 3:
+                intent = sys.argv[3]
+                change_code(file_path, intent)
+            else:
+                print("YOU MUST PROVIDE AN INTENT IF YOU WANT TO CHANGE CODE!")
+                sys.exit(1)
+        else:
+            print("Usage: python3 senkovi.py <file_path> <0 if you want to fix code, 1 if you want to change code> <intent, optional if just bugfixing>")
+            sys.exit(1)
