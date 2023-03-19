@@ -1,4 +1,4 @@
-# Senkovi
+# Senkovi (DON'T USE CURRENT VERSION, GO BACK TO YESTERDAY!, I MESSED UP INDENTATIONS AGAIN!!!)
 
 ## What is it?
 Inspired by this [tweet](https://twitter.com/bio_bootloader/status/1636880208304431104?s=20) by bio_bootloader, I wrote a Python script that uses the GPT-4 API to "heal" other pytho scripts. As of now, it catches some basic errors, and in my incredibly limited testing, it fixes them. It now also can write a small program with a prompt passed in and then iteratively heal that program until it works.
