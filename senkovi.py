@@ -79,9 +79,18 @@ def send_code(file_name: str, intent: str = None) -> str:
                 {{
                 "action": "edit",
                 "line_number": 2,
-                "original_line": "print(hello world')",
                 "new_line": "print('hello world')",
-                }}
+                }},
+                {{
+                "action": "add",
+                "line_number": 3,
+                "new_line": "hello="world"\nprint(hello)\nprint(1 + 2)",
+                }},
+                {{
+                "action": "remove",
+                "line_number": 4,
+                "new_line": "",
+                }},
             ]
         }},
     ]
@@ -92,6 +101,7 @@ def send_code(file_name: str, intent: str = None) -> str:
     "remove" for removing a line, and "edit" for editing a line.
     Please provide the suggested changes in this format.
     PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE.
+    You should only have ONE add per file, the add should be at the end of the file and contain all lines you are adding separated with newline characters.
     DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
     You will be penalized if you do.
     Original Code:
@@ -109,6 +119,7 @@ def send_code(file_name: str, intent: str = None) -> str:
             },
             {"role": "user", "content": prompt},
         ],
+        temperature=1.0,
     )
     return response["choices"][0]["message"]["content"]
 
@@ -128,11 +139,13 @@ def edit_code(run_file: str, fix: str, intent: str = None) -> List[str]:
         changes = f["changes"]
         with open(file_path, "r") as file:
             lines = file.readlines()
+        print(type(changes))
+        print(changes)
         changes.sort(key=lambda x: x["line_number"], reverse=True)
+        print(changes)
         for change in changes:
             action = change["action"]
             line_number = change["line_number"] - 1
-            original_line = change.get("original_line")
             new_line = change.get("new_line")
             if action == "edit":
                 lines[line_number] = new_line.rstrip() + "\n"
@@ -200,7 +213,7 @@ def change_code(file_path: str, intent: str = None):
             Please return a JSON object containing the suggested changes in a format \
             similar to the git diff system, showing whether a line is added,
             removed, or edited for each file.
-            DO NOT ADD DUPLICATE LINES, EDIT LINES THAT ARE ALREADY THERE, FAVOR EDITS OVER ADDS.
+            You should only have ONE add per file, the add should be at the end of the file and contain all lines you are adding separated with newline characters.
             BE JUDICIOUS WITH YOUR CHANGES, DON'T TOUCH LINES THAT DON'T NEED TO BE TOUCHED.
     {"Intent: " + intent if intent else ""}
 
@@ -215,9 +228,18 @@ def change_code(file_path: str, intent: str = None):
                 {{
                 "action": "edit",
                 "line_number": 2,
-                "original_line": "print(hello world')",
                 "new_line": "print('hello world')",
-                }}
+                }},
+                {{
+                "action": "add",
+                "line_number": 3,
+                "new_line": "hello="world"\nprint(hello)\nprint(1 + 2)",
+                }},
+                {{
+                "action": "remove",
+                "line_number": 4,
+                "new_line": "",
+                }},
             ]
         }},
     ]
@@ -244,6 +266,7 @@ def change_code(file_path: str, intent: str = None):
             },
             {"role": "user", "content": change_prompt},
         ],
+        temperature=1.0,
     )
 
     fix = response["choices"][0]["message"]["content"]
