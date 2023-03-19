@@ -26,6 +26,9 @@ so if you pass in a reminder in the instructions you'll probably end up with bet
 - You're letting code you didn't write execute on your machine if you run this locally. This could potentially brick your computer.
 - It is really slow. Hopefully speed picks up as OpenAI improves their infra for GPT-4.
 
+## Attributions
+The test buggy_program in this repo is from [Wolverine](https://github.com/biobootloader/wolverine/tree/main).
+
 ## Contributions
 I would love your contributions. Just make a Pull Request and add what you think might be cool.
 

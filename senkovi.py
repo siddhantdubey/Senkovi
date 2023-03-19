@@ -32,13 +32,16 @@ def run_code(file_name: str, module_cache: Dict[str, types.ModuleType] = None) -
     output = ""
     if module_cache is None:
         module_cache = {}
+    # add line numbers to the code as well
     with open(file_name, "r") as f:
-        code = f.read()
+        for i, line in enumerate(f.readlines()):
+            code += f"{i + 1:4d} {line}"
     for file in os.listdir():
         if file.endswith(".py"):
             module_name = file.split(".")[0]
             if module_name not in module_cache and module_name != "__main__" and module_name != "senkovi" and module_name != file_name.split(".")[0]:
-                module_cache[module_name] = importlib.import_module(module_name)
+                module_cache[module_name] = importlib.import_module(
+                    module_name)
     buffer = StringIO()
     with redirect_stdout(buffer):
         for module_name, module in module_cache.items():
@@ -61,7 +64,7 @@ def send_code(file_name: str, intent: str = None) -> str:
     prompt = f"""I have a Python program with errors, and I would like you to \
             help me fix the issues in the code.
     The original code of the program run ({file_name}) and the output, including any error messages and stack \
-            traces, are provided below.
+            traces, are provided below. Don't change things that are not broken.
 
     Please return a JSON object containing the suggested changes in a format \
             similar to the git diff system, showing whether a line is added,
@@ -101,7 +104,7 @@ def send_code(file_name: str, intent: str = None) -> str:
     "remove" for removing a line, and "edit" for editing a line.
     Please provide the suggested changes in this format.
     PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE.
-    You should only have ONE add per file, the add should be at the end of the file and contain all lines you are adding separated with newline characters.
+    Your add should contain the lines you are adding separated with newline characters.
     DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
     You will be penalized if you do.
     Original Code:
@@ -139,10 +142,7 @@ def edit_code(run_file: str, fix: str, intent: str = None) -> List[str]:
         changes = f["changes"]
         with open(file_path, "r") as file:
             lines = file.readlines()
-        print(type(changes))
-        print(changes)
         changes.sort(key=lambda x: x["line_number"], reverse=True)
-        print(changes)
         for change in changes:
             action = change["action"]
             line_number = change["line_number"] - 1
@@ -167,7 +167,7 @@ def fix_code(file_path: str, intent: str = None):
     print(f"Original Code:\n{original_code}\n")
 
     while True:
-        code, output = run_code(file_path, module_cache)   
+        code, output = run_code(file_path, module_cache)
         original_files = {}
         for file in os.listdir():
             if file.endswith(".py"):
@@ -195,6 +195,7 @@ def fix_code(file_path: str, intent: str = None):
             print("Code is syntax error-free!")
             break
 
+
 def change_code(file_path: str, intent: str = None):
     """ 
     This changes the code according to the intent provided by the user.
@@ -205,7 +206,7 @@ def change_code(file_path: str, intent: str = None):
 
     with open(file_path, "r") as f:
         original_code = f.read()
-    
+
     print(f"Original Code:\n{original_code}\n")
 
     change_prompt = f"""I want you to change the following Python code in a manner I declare with the following intent {intent}.
@@ -213,7 +214,6 @@ def change_code(file_path: str, intent: str = None):
             Please return a JSON object containing the suggested changes in a format \
             similar to the git diff system, showing whether a line is added,
             removed, or edited for each file.
-            You should only have ONE add per file, the add should be at the end of the file and contain all lines you are adding separated with newline characters.
             BE JUDICIOUS WITH YOUR CHANGES, DON'T TOUCH LINES THAT DON'T NEED TO BE TOUCHED.
     {"Intent: " + intent if intent else ""}
 
@@ -248,6 +248,7 @@ def change_code(file_path: str, intent: str = None):
     In the 'action' field, use "add" for adding a line,
     "remove" for removing a line, and "edit" for editing a line.
     Please provide the suggested changes in this format.
+    Your add should contain the lines you are adding separated with newline characters.            
     PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL!
     DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
     You will be penalized if you do.
@@ -285,7 +286,6 @@ def change_code(file_path: str, intent: str = None):
         print(f"\033[33m{code_file}\033[0m")
         print("".join(diff))
     fix_code(file_path, intent)
-
 
 
 if __name__ == "__main__":

@@ -25,7 +25,8 @@ def generate_program(prompt: str) -> List[str]:
     )
     completion = response["choices"][0]["message"]["content"]
     lines = completion.split("\n")
-    lines = [line for line in lines if line.strip() not in ["```python", "```"]]
+    lines = [line for line in lines if line.strip() not in [
+        "```python", "```"]]
     return lines
 
 
@@ -37,6 +38,7 @@ def write_program(completion: List[str], filename: str = None) -> str:
     with open(filename, "w+") as f:
         f.write(program_code)
     return filename
+
 
 def main():
     if len(sys.argv) < 2:
@@ -51,6 +53,7 @@ def main():
     filename = write_program(program, filename)
     print(f"\033[94mProgram written to {filename}!\033[0m")
     fix_code(filename, prompt)
+
 
 if __name__ == "__main__":
     main()

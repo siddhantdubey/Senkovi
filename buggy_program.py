@@ -1,5 +1,3 @@
-import sys
-
 def add_numbers(a, b):
     return a + b
 
@@ -23,4 +21,4 @@ def calculate(operation, num1, num2):
 
 
 if __name__ == "__main__":
-    print(calculate("divide", 4, 2))
+    print(calculate("subtract", 4, 2))
