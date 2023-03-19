@@ -88,7 +88,7 @@ def send_code(file_name: str, intent: str = None) -> str:
             ]
         }},
     ]
-    
+
     }}
     In the 'action' field, use "add" for adding a line,
     "remove" for removing a line, and "edit" for editing a line.
@@ -144,7 +144,7 @@ def edit_code(run_file: str, fix: str, intent: str = None) -> List[str]:
     return [f['file_name'] for f in files_changed]
 
 
-def main(file_path: str, intent: str = None):
+def fix_code(file_path: str, intent: str = None):
     module_cache = {}
 
     with open(file_path, "r") as f:
@@ -184,6 +184,6 @@ def main(file_path: str, intent: str = None):
 if __name__ == "__main__":
     intent = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
     if intent:
-        main(sys.argv[1], intent)
+        fix_code(sys.argv[1], intent)
     else:
-        main(sys.argv[1])
+        fix_code(sys.argv[1])
