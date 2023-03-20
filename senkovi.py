@@ -1,15 +1,12 @@
 import openai
 import sys
 import os
-import importlib
 import traceback
-import runpy
+import subprocess
 import json
-import types
 import difflib
-from contextlib import redirect_stdout
-from io import StringIO
-from typing import Tuple, List, Dict
+import shutil
+from typing import Tuple, List
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -24,53 +21,62 @@ def colorize_diff(diff: str) -> str:
         "-": "\033[31m",
         "@": "\033[34m",
     }
-    return "".join(colored(line, color_map.get(line[0], "\033[37m")) + "\n" for line in diff.splitlines())
+    return "".join(
+        colored(line, color_map.get(line[0], "\033[37m")) + "\n"
+        for line in diff.splitlines()
+    )
 
 
-def run_code(file_name: str, module_cache: Dict[str, types.ModuleType] = None) -> Tuple[str, str]:
+def run_code(file_name: str) -> Tuple[str, str]:
     code = ""
     output = ""
-    if module_cache is None:
-        module_cache = {}
-    # add line numbers to the code as well
     with open(file_name, "r") as f:
         for i, line in enumerate(f.readlines()):
-            code += f"{i + 1:4d} {line}"
-    for file in os.listdir():
-        if file.endswith(".py"):
-            module_name = file.split(".")[0]
-            if module_name not in module_cache and module_name != "__main__" and module_name != "senkovi" and module_name != file_name.split(".")[0]:
-                module_cache[module_name] = importlib.import_module(
-                    module_name)
-    buffer = StringIO()
-    with redirect_stdout(buffer):
-        for module_name, module in module_cache.items():
-            if module_name != "__main__":
-                importlib.reload(module)
-        try:
-            runpy.run_path(file_name, run_name="__main__")
-        except Exception as e:
-            output += buffer.getvalue()
-            output += "\n" + "".join(traceback.format_exception(
-                *sys.exc_info()))
-    if not output:
-        output = buffer.getvalue()
+            code += f"{i + 1}: {line}"
+    try:
+        output = subprocess.check_output(
+            ["python3", file_name], stderr=subprocess.STDOUT, universal_newlines=True
+        )
+    except subprocess.CalledProcessError as e:
+        output = e.output
+        output += "\n" + "".join(
+            traceback.format_exception(type(e), e, e.__traceback__)
+        )
     return code, output
 
 
 def send_code(file_name: str, intent: str = None) -> str:
     code, output = run_code(file_name)
+    restricted_files = ["senkovi.py", "fabian.py"]
+    other_file_codes = []
+    for file in os.listdir():
+        if (
+            not os.path.isdir(file)
+            and file != file_path
+            and file not in restricted_files
+            and "bak" not in file
+        ):
+            with open(file, "r") as f:
+                file_code = (
+                    "# "
+                    + file
+                    + " (this is not in the actual code file, this is for your info ONLY)\n"
+                )
+                for i, line in enumerate(f.readlines()):
+                    file_code += f"{i + 1:4d}: {line}"
+                other_file_codes.append(
+                    file_code
+                    + "# END OF "
+                    + file
+                    + " (this is not in the actual code file, this is for your info ONLY)\n"
+                )
 
-    prompt = f"""I have a Python program with errors, and I would like you to \
-            help me fix the issues in the code.
-    The original code of the program run ({file_name}) and the output, including any error messages and stack \
-            traces, are provided below. Don't change things that are not broken.
-
-    Please return a JSON object containing the suggested changes in a format \
+    prompt = f"""You are a brilliant Python programmer that is one of the best in the world 
+    at finding and fixing bugs in code. You will be given a program that has bug(s) in it,
+    along with the stack traces, and your job is to fix the bug(s) and return your changes
+    in a very specific format specified below. {f"The intent of this program is {intent}" if intent else ""}. Please return a JSON object containing the suggested changes in a format \
             similar to the git diff system, showing whether a line is added,
             removed, or edited for each file.
-    {"Intent: " + intent if intent else ""}
-    
     For example, the JSON output should look like:
     {{
     "intent": "This should be what you think the program SHOULD do.",
@@ -97,20 +103,23 @@ def send_code(file_name: str, intent: str = None) -> str:
             ]
         }},
     ]
-
     }}
-    In the 'action' field, use "add" for adding a line, thisl will put the line \
+    In the 'action' field, use "add" for adding a line, this will put the line \
             after the line number,
     "remove" for removing a line, and "edit" for editing a line.
-    Please provide the suggested changes in this format.
-    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE.
-    Your add should contain the lines you are adding separated with newline characters.
-    DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
-    You will be penalized if you do.
-    Original Code:
+    Please provide the suggested changes in this format. The code has line numbers \
+    prepended to each line in the format "1:print('hello world')", so you can use \
+    that to determine the line number on which to make a change. Edits are applied in
+    reverse line order so that the line numbers don't change as you edit the code.
+    Code of the file that was run:
     {code}
     Output:
     {output}
+    You are also provided with the code of the other files in the directory:
+    {"".join(other_file_codes)}
+    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL! DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
+    You will be penalized if you do. ONLY RETURN JSON, DON'T EXPLAIN YOURSELF UNLESS IN THE EXPLANATION FIELD.
+    DON'T INCLUDE MARKDOWN BACKTICKS OR ANYTHING LIKE THAT, JUST THE JSON.
     """
     response = openai.ChatCompletion.create(
         model="gpt-4",
@@ -152,22 +161,21 @@ def edit_code(run_file: str, fix: str, intent: str = None) -> List[str]:
             elif action == "remove":
                 del lines[line_number]
             elif action == "add":
-                lines.insert(line_number + 1, new_line + "\n")
+                lines.insert(line_number, new_line + "\n")
 
         with open(file_path, "w") as file:
             file.writelines(lines)
-    return [f['file_name'] for f in files_changed]
+    return [f["file_name"] for f in files_changed]
 
 
 def fix_code(file_path: str, intent: str = None):
-    module_cache = {}
-
     with open(file_path, "r") as f:
         original_code = f.read()
-    print(f"Original Code:\n{original_code}\n")
-
+    for file in os.listdir():
+        if file.endswith(".py"):
+            shutil.copyfile(file, file + ".bak")
     while True:
-        code, output = run_code(file_path, module_cache)
+        _, output = run_code(file_path)
         original_files = {}
         for file in os.listdir():
             if file.endswith(".py"):
@@ -197,17 +205,39 @@ def fix_code(file_path: str, intent: str = None):
 
 
 def change_code(file_path: str, intent: str = None):
-    """ 
+    """
     This changes the code according to the intent provided by the user.
     It then calls fix_code to fix the code if there are any bugs.
     """
-    module_cache = {}
     code, output = run_code(file_path)
 
+    other_file_codes = []
     with open(file_path, "r") as f:
         original_code = f.read()
-
-    print(f"Original Code:\n{original_code}\n")
+    restricted_files = ["senkovi.py", "fabian.py"]
+    for file in os.listdir():
+        if file.endswith(".py"):
+            shutil.copyfile(file, "pre_change" + file + ".bak")
+        if (
+            not os.path.isdir(file)
+            and file != file_path
+            and file not in restricted_files
+            and "bak" not in file
+        ):
+            with open(file, "r") as f:
+                file_code = (
+                    "# "
+                    + file
+                    + " (this is not in the actual code file, this is for your info ONLY)\n"
+                )
+                for i, line in enumerate(f.readlines()):
+                    file_code += f"{i + 1}: {line}"
+                other_file_codes.append(
+                    file_code
+                    + "# END OF "
+                    + file
+                    + " (this is not in the actual code file, this is for your info ONLY)\n"
+                )
 
     change_prompt = f"""I want you to change the following Python code in a manner I declare with the following intent {intent}.
             The file you're editing is {file_path}.
@@ -247,15 +277,19 @@ def change_code(file_path: str, intent: str = None):
     }}
     In the 'action' field, use "add" for adding a line,
     "remove" for removing a line, and "edit" for editing a line.
-    Please provide the suggested changes in this format.
-    Your add should contain the lines you are adding separated with newline characters.            
-    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL!
-    DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
-    You will be penalized if you do.
-    Original Code:
+    Please provide the suggested changes in this format. The code has line numbers \
+    prepended to each line in the format "1:print('hello world')", so you can use \
+    that to determine the line number on which to make a change. Edits are applied in
+    reverse line order so that the line numbers don't change as you edit the code.
+    Code of the file that was run:
     {code}
     Output:
     {output}
+    You are also provided with the code of the other files in the directory:
+    {"".join(other_file_codes)}
+    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL! DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
+    You will be penalized if you do. ONLY RETURN JSON, DON'T EXPLAIN YOURSELF UNLESS IN THE EXPLANATION FIELD.
+    DON'T INCLUDE MARKDOWN BACKTICKS OR ANYTHING LIKE THAT, JUST THE JSON.
     """
 
     response = openai.ChatCompletion.create(
@@ -290,7 +324,9 @@ def change_code(file_path: str, intent: str = None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 senkovi.py <file_path> <0 if you want to fix code, 1 if you want to change code> <intent, optional if just bugfixing>")
+        print(
+            "Usage: python3 senkovi.py <file_path> <0 if you want to fix code, 1 if you want to change code> <intent, optional if just bugfixing>"
+        )
         sys.exit(1)
     file_path = sys.argv[1]
     if len(sys.argv) > 2:
@@ -304,5 +340,7 @@ if __name__ == "__main__":
                 print("YOU MUST PROVIDE AN INTENT IF YOU WANT TO CHANGE CODE!")
                 sys.exit(1)
         else:
-            print("Usage: python3 senkovi.py <file_path> <0 if you want to fix code, 1 if you want to change code> <intent, optional if just bugfixing>")
+            print(
+                "Usage: python3 senkovi.py <file_path> <0 if you want to fix code, 1 if you want to change code> <intent, optional if just bugfixing>"
+            )
             sys.exit(1)

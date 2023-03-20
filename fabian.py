@@ -32,8 +32,7 @@ def generate_program(prompt: str) -> List[str]:
 
 def write_program(completion: List[str], filename: str = None) -> str:
     if not filename:
-        filename_line = completion.pop(0)
-        filename = filename_line.strip().strip("# ").strip()
+        filename = "generated_program.py"
     program_code = "\n".join(completion)
     with open(filename, "w+") as f:
         f.write(program_code)

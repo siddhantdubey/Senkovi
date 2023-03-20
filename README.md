@@ -36,10 +36,12 @@ I would love your contributions. Just make a Pull Request and add what you think
 - [x] Pass in a user description of what the script *should* do, to give Senkovi more info to work with
 - [x] Prettifying the terminal output to show diffs nicely.
 - [x] A script to write a program from scratch
+- [x] Make backups of code before GPT-4 does its work
 - [ ] Catch logic errors, not just errors that crash the program
 - [ ] "Safe mode" where the user has to approve the code before it is run
 - [ ] More interactivity where the user can guide the repairs to the code?
 - [ ] Better TUI
+- [ ] Move prompts out of code and into text files
 
 ## Naming
 - `senkovi.py` named Senkovi after Disra Senkovi from *Children of Ruin*.
