@@ -9,13 +9,9 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def generate_program(prompt: str) -> List[str]:
-    detailed_prompt = f""""
-    I want you to write a Python program with the following specification: {prompt}.
-    Do not output anything but a valid Python script. The very first line in the program should be a single-line comment with the name of the file like this '# filename.py'
-    If you need to think through things before writing the code, include a multiline comment at the top of the script.
-    You can also include comments as you see fit in the code, but everything should be valid Python.
-    DO NOT OUTPUT ANYTHING BUT PYTHON CODE!! DO NOT EXPLAIN YOURSELF UNLESS IT IS IN COMMENTS IN THE CODE, YOUR COMMENTS SHOULD ONLY RELATE TO THE CODE ITSELF.
-    """
+    detailed_prompt = "I want you to write a Python program with"
+    detailed_prompt += f" the following specification: {prompt} \n"
+    detailed_prompt += open("fabian_prompt.txt", "r").read()
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
