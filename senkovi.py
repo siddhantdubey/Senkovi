@@ -71,56 +71,12 @@ def send_code(file_name: str, intent: str = None) -> str:
                     + " (this is not in the actual code file, this is for your info ONLY)\n"
                 )
 
-    prompt = f"""You are a brilliant Python programmer that is one of the best in the world 
-    at finding and fixing bugs in code. You will be given a program that has bug(s) in it,
-    along with the stack traces, and your job is to fix the bug(s) and return your changes
-    in a very specific format specified below. {f"The intent of this program is {intent}" if intent else ""}. Please return a JSON object containing the suggested changes in a format \
-            similar to the git diff system, showing whether a line is added,
-            removed, or edited for each file.
-    For example, the JSON output should look like:
-    {{
-    "intent": "This should be what you think the program SHOULD do.",
-    "explanation": "Explanation of what went wrong and the changes being made",
-    "files": [
-        {{
-            "file_name": "file_name.py",
-            "changes": [
-                {{
-                "action": "edit",
-                "line_number": 2,
-                "new_line": "print('hello world')",
-                }},
-                {{
-                "action": "add",
-                "line_number": 3,
-                "new_line": "hello="world"\nprint(hello)\nprint(1 + 2)",
-                }},
-                {{
-                "action": "remove",
-                "line_number": 4,
-                "new_line": "",
-                }},
-            ]
-        }},
-    ]
-    }}
-    In the 'action' field, use "add" for adding a line, this will put the line \
-            after the line number,
-    "remove" for removing a line, and "edit" for editing a line.
-    Please provide the suggested changes in this format. The code has line numbers \
-    prepended to each line in the format "1:print('hello world')", so you can use \
-    that to determine the line number on which to make a change. Edits are applied in
-    reverse line order so that the line numbers don't change as you edit the code.
-    Code of the file that was run:
-    {code}
-    Output:
-    {output}
-    You are also provided with the code of the other files in the directory:
-    {"".join(other_file_codes)}
-    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL! DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
-    You will be penalized if you do. ONLY RETURN JSON, DON'T EXPLAIN YOURSELF UNLESS IN THE EXPLANATION FIELD.
-    DON'T INCLUDE MARKDOWN BACKTICKS OR ANYTHING LIKE THAT, JUST THE JSON.
-    """
+    prompt = open("senkovi_prompt.txt", "r").read()
+    prompt += f"\n Code: {code}"
+    prompt += f"\n Output: {output}"
+    prompt += f"\n Other files: {''.join(other_file_codes)}"
+    if intent:
+        prompt += f"\n Intent: {intent}"
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -239,59 +195,12 @@ def change_code(file_path: str, intent: str = None):
                     + " (this is not in the actual code file, this is for your info ONLY)\n"
                 )
 
-    change_prompt = f"""I want you to change the following Python code in a manner I declare with the following intent {intent}.
-            The file you're editing is {file_path}.
-            Please return a JSON object containing the suggested changes in a format \
-            similar to the git diff system, showing whether a line is added,
-            removed, or edited for each file.
-            BE JUDICIOUS WITH YOUR CHANGES, DON'T TOUCH LINES THAT DON'T NEED TO BE TOUCHED.
-    {"Intent: " + intent if intent else ""}
-
-    For example, the JSON output should look like:
-    {{
-    "intent": "This should be what you the user wants the code to do.",
-    "explanation": "Explanation of your plan to change the code.",
-    "files": [
-        {{
-            "file_name": "file_name.py",
-            "changes": [
-                {{
-                "action": "edit",
-                "line_number": 2,
-                "new_line": "print('hello world')",
-                }},
-                {{
-                "action": "add",
-                "line_number": 3,
-                "new_line": "hello="world"\nprint(hello)\nprint(1 + 2)",
-                }},
-                {{
-                "action": "remove",
-                "line_number": 4,
-                "new_line": "",
-                }},
-            ]
-        }},
-    ]
-
-    }}
-    In the 'action' field, use "add" for adding a line,
-    "remove" for removing a line, and "edit" for editing a line.
-    Please provide the suggested changes in this format. The code has line numbers \
-    prepended to each line in the format "1:print('hello world')", so you can use \
-    that to determine the line number on which to make a change. Edits are applied in
-    reverse line order so that the line numbers don't change as you edit the code.
-    Code of the file that was run:
-    {code}
-    Output:
-    {output}
-    You are also provided with the code of the other files in the directory:
-    {"".join(other_file_codes)}
-    PLAY VERY CLOSE ATTENTION TO INDENTATION AND WHITESPACE, THIS IS PYTHON AFTER ALL! DO NOT DEVIATE FROM THE FORMAT IT MUST BE ABLE TO BE PARSED BY ME! 
-    You will be penalized if you do. ONLY RETURN JSON, DON'T EXPLAIN YOURSELF UNLESS IN THE EXPLANATION FIELD.
-    DON'T INCLUDE MARKDOWN BACKTICKS OR ANYTHING LIKE THAT, JUST THE JSON.
-    """
-
+    prompt = f"I want you to change the functionality of {file_path}"
+    prompt += f"according to this intent: {intent}. \n"
+    prompt += open("change_prompt.txt", "r").read()
+    prompt += f"\n Code: {code}"
+    prompt += f"\n Output: {output}"
+    prompt += f"\n Other files: {''.join(other_file_codes)}"
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -299,7 +208,7 @@ def change_code(file_path: str, intent: str = None):
                 "role": "system",
                 "content": "You are a helpful assistant that is brilliant at writing Python code.",
             },
-            {"role": "user", "content": change_prompt},
+            {"role": "user", "content": prompt},
         ],
         temperature=1.0,
     )
