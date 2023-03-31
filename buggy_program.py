@@ -1,6 +1,8 @@
 def add_numbers(a, b):
     return a + b
 
+def subtract_numbers(a, b):
+    return a - b
 def multiply_numbers(a, b):
     return a * b
 
@@ -16,7 +18,7 @@ def calculate(operation, num1, num2):
         result = multiply_numbers(num1, num2)
     elif operation == "divide":
         result = divide_numbers(num1, num2)
-    return res
+    return result
 
 
 
